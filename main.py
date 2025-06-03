@@ -6,9 +6,6 @@ from tools import available_tools
 from config import (
     OPENAI_API_KEY, 
     OPENAI_MODEL_NAME, 
-    MONGO_URI,
-    MONGO_DB,
-    MONGO_COLLECTION,
     checkpointer
 )
 from utils import load_system_prompt
