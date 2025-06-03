@@ -13,9 +13,17 @@ class MongoDBCheckpointer:
         self.collection.create_index("user_id")
 
     def save_checkpoint(self, user_id: str, messages: List[BaseMessage]) -> None:
-        """Save conversation history for a user"""
+        """Save conversation history for a user (only type and data fields)"""
         try:
-            messages_dict = [message_to_dict(msg) for msg in messages]
+            # Convert messages to dict and extract only type and data fields
+            messages_dict = []
+            for msg in messages:
+                full_dict = message_to_dict(msg)
+                simplified_dict = {
+                    "type": full_dict["type"],
+                    "data": full_dict["data"]["content"] if "content" in full_dict["data"] else None,
+                }
+                messages_dict.append(simplified_dict)
             
             checkpoint_data = {
                 "user_id": user_id,
@@ -29,7 +37,7 @@ class MongoDBCheckpointer:
                 upsert=True
             )
             print(f"Checkpoint saved for user: {user_id}")
-            
+        
         except Exception as e:
             print(f"Error saving checkpoint for user {user_id}: {e}")
 
@@ -39,8 +47,23 @@ class MongoDBCheckpointer:
             result = self.collection.find_one({"user_id": user_id})
             
             if result and "messages" in result:
-                # Convert dict format back to message objects
-                messages = messages_from_dict(result["messages"])
+                from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+                
+                messages = []
+                for msg_dict in result["messages"]:
+                    msg_type = msg_dict["type"]
+                    msg_content = msg_dict["data"]  # This is just the content string
+                    
+                    if msg_type == "human":
+                        message = HumanMessage(content=msg_content)
+                    elif msg_type == "ai":
+                        message = AIMessage(content=msg_content)
+              
+                    else:
+                        continue  
+                    
+                    messages.append(message)
+                
                 print(f"Checkpoint loaded for user: {user_id}, {len(messages)} messages")
                 return messages
             else:
